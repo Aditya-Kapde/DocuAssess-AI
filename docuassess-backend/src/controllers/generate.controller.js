@@ -12,7 +12,7 @@ const ERROR_STATUS_MAP = {
  * POST /api/v1/generate
  */
 const generate = async (req, res, next) => {
-  console.log("REQ BODY:", req.body); // debug (can remove later)
+  logger.debug(`[request] Body: ${JSON.stringify(req.body)}`);
 
   const { fileId, questionTypes, count } = req.body; // ✅ UPDATED
 
