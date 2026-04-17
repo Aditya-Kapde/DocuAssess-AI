@@ -99,10 +99,23 @@ const assembleContext = (chunkContents, maxLength = MAX_CONTEXT_LENGTH) => {
         : `${assembled}${SEPARATOR}${content}`;
 
     if (candidate.length > maxLength) {
-      logger.warn(
-        `[promptBuilder] Context truncated at chunk ${usedChunks}/${chunkContents.length} ` +
-        `(${assembled.length}/${maxLength} chars used)`
-      );
+      // If assembled is still empty, the first chunk itself exceeds the limit.
+      // Truncate it at the nearest word boundary instead of returning nothing.
+      if (assembled.length === 0) {
+        const truncated = content.substring(0, maxLength);
+        const lastSpace = truncated.lastIndexOf(' ');
+        assembled = lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
+        usedChunks = 1;
+        logger.warn(
+          `[promptBuilder] First chunk exceeded limit (${content.length}/${maxLength} chars) — ` +
+          `truncated to ${assembled.length} chars`
+        );
+      } else {
+        logger.warn(
+          `[promptBuilder] Context truncated at chunk ${usedChunks}/${chunkContents.length} ` +
+          `(${assembled.length}/${maxLength} chars used)`
+        );
+      }
       return { context: assembled, truncated: true, usedChunks };
     }
 
