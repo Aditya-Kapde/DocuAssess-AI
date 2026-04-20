@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
  */
 const generateQuestions = async ({ fileId, questionTypes, count }) => {
   // ── Stage 1: Retrieve context chunks ─────────────────────────────────────
-  const { contents, totalChunks } = retrieveContext(fileId);
+  const { contents, totalChunks } = await retrieveContext(fileId);
 
   if (!contents || contents.length === 0) {
     return {
