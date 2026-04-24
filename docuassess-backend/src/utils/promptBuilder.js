@@ -214,23 +214,23 @@ const buildPrompt = ({ chunkContents, questionSpec, maxContextLength }) => {
 
   // ── Final prompt ──────────────────────────────────────────────────────────
   const prompt = `
-You are a strict assessment generator. Your ONLY job is to create assessment questions
-from the CONTEXT provided below. You have NO other knowledge sources.
+You are an assessment generator. Your job is to create assessment questions
+based on the CONTEXT provided below.
 
 ════════════════════════════════════════
-ABSOLUTE RULES — VIOLATION IS NOT ALLOWED
+RULES
 ════════════════════════════════════════
-1. Use ONLY information explicitly present in the CONTEXT below.
-2. DO NOT use any external knowledge, general facts, or assumptions.
-3. DO NOT infer, guess, or extrapolate beyond what the CONTEXT states.
-4. If you cannot form a valid question strictly from the CONTEXT, SKIP it entirely.
-5. Every answer MUST be directly verifiable from the CONTEXT.
+1. Base all questions on the CONTEXT below.
+2. You may use reasonable inference and paraphrasing based on the context.
+3. If exact phrasing is not available, you may rephrase or simplify the content into a valid question.
+4. DO NOT use external knowledge or general facts unrelated to the CONTEXT.
+5. Every answer MUST be verifiable or derivable from the CONTEXT.
 6. Return ONLY a valid JSON object — no explanation, no markdown, no preamble.
 7. Do NOT include any text outside the JSON object.
 8. The JSON must strictly follow the OUTPUT SCHEMA defined below.
 
 ════════════════════════════════════════
-CONTEXT (your ONLY source of truth)
+CONTEXT
 ════════════════════════════════════════
 """
 ${context}
@@ -239,8 +239,12 @@ ${context}
 ════════════════════════════════════════
 GENERATION TASK
 ════════════════════════════════════════
-Generate the following from the CONTEXT above:
+Generate EXACTLY the following from the CONTEXT above. No more, no less.
 ${questionSpecBlock}
+
+You MUST generate EXACTLY the specified number of questions for each type.
+You MUST attempt to generate the requested number of questions using the available context.
+Generating fewer or more than the requested count is a violation.
 
 ════════════════════════════════════════
 OUTPUT SCHEMA (follow exactly)
@@ -251,9 +255,11 @@ ${outputSchemaBlock}
 REMINDER
 ════════════════════════════════════════
 - Output ONLY the JSON object. No extra text.
-- Every question and answer must trace back to the CONTEXT.
-- If a question type cannot be generated from the CONTEXT, return an empty array for that key.
+- Every question and answer must relate to the CONTEXT.
+- You MUST produce EXACTLY the requested count for each question type.
+- Always attempt to generate at least one valid question per requested type if any relevant content exists.
 `.trim();
+
 
   logger.info(
     `[promptBuilder] Prompt built — types: [${types.join(', ')}], ` +

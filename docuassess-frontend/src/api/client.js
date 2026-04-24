@@ -28,19 +28,18 @@ export async function uploadFile(file) {
 
 /**
  * POST /api/v1/generate — generate questions from uploaded file
- * Backend expects: { fileId, questionTypes: string[], count: number }
+ * Backend expects: { fileId, questionConfig: Record<string, number> }
  *
  * @param {object} params
  * @param {string} params.fileId
- * @param {string[]} params.questionTypes - e.g. ['mcq', 'true_false']
- * @param {number} params.count - questions per type (1-20)
+ * @param {Record<string, number>} params.questionConfig - e.g. { mcq: 5, true_false: 3 }
  * @returns {Promise<object>} { success, questions, meta }
  */
-export async function generateQuestions({ fileId, questionTypes, count }) {
+export async function generateQuestions({ fileId, questionConfig }) {
   const res = await fetch(`${API_BASE}/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileId, questionTypes, count }),
+    body: JSON.stringify({ fileId, questionConfig }),
   });
 
   return handleResponse(res);
