@@ -6,6 +6,7 @@ const ERROR_STATUS_MAP = {
   API_CALL_FAILED: 502,
   RETRY_API_CALL_FAILED: 502,
   PARSE_FAILED: 422,
+  NO_VALID_TYPES: 400,
 };
 
 /**
@@ -14,13 +15,12 @@ const ERROR_STATUS_MAP = {
 const generate = async (req, res, next) => {
   logger.debug(`[request] Body: ${JSON.stringify(req.body)}`);
 
-  const { fileId, questionTypes, count } = req.body; // ✅ UPDATED
+  const { fileId, questionConfig } = req.body;
 
   try {
     const result = await generateQuestions({
       fileId,
-      questionTypes,
-      count,
+      questionConfig,
     });
 
     if (!result.success) {

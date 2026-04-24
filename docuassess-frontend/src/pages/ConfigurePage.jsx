@@ -9,13 +9,14 @@ import QuestionTypeSelector from '../components/QuestionTypeSelector';
 import SliderInput from '../components/SliderInput';
 import GenerateButton from '../components/GenerateButton';
 import ErrorBanner from '../components/ErrorBanner';
+import { QUESTION_TYPES } from '../utils/questionTypes';
 
 export default function ConfigurePage() {
   const navigate = useNavigate();
   const {
     fileId, fileMeta,
     selectedTypes, toggleType,
-    countPerType, setCount,
+    questionConfig, setTypeCount,
     setResults,
   } = useAppContext();
 
@@ -36,8 +37,7 @@ export default function ConfigurePage() {
     try {
       const data = await generateQuestions({
         fileId,
-        questionTypes: selectedTypes,
-        count: countPerType,
+        questionConfig,
       });
 
       if (data.success) {
@@ -54,11 +54,15 @@ export default function ConfigurePage() {
       toast.error('Failed to generate questions');
       setLoading(false);
     }
-  }, [loading, fileId, selectedTypes, countPerType, setResults, navigate]);
+  }, [loading, fileId, selectedTypes, questionConfig, setResults, navigate]);
 
   if (!fileId) return null;
 
   const isDisabled = selectedTypes.length === 0;
+
+  // Build a lookup for short labels from QUESTION_TYPES
+  const typeLabelMap = {};
+  QUESTION_TYPES.forEach(({ key, label }) => { typeLabelMap[key] = label; });
 
   return (
     <div className="animate-fade-in">
@@ -68,7 +72,7 @@ export default function ConfigurePage() {
           Configure generation
         </h1>
         <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-          Select question types and count, then generate
+          Select question types and set count per type, then generate
         </p>
       </div>
 
@@ -108,7 +112,21 @@ export default function ConfigurePage() {
           }}
         >
           <QuestionTypeSelector selectedTypes={selectedTypes} onToggle={toggleType} />
-          <SliderInput value={countPerType} onChange={setCount} />
+
+          {/* Per-type sliders */}
+          {selectedTypes.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {selectedTypes.map((type) => (
+                <SliderInput
+                  key={type}
+                  label={typeLabelMap[type] || type}
+                  value={questionConfig[type] || 1}
+                  onChange={(val) => setTypeCount(type, val)}
+                />
+              ))}
+            </div>
+          )}
+
           <GenerateButton
             onClick={handleGenerate}
             disabled={isDisabled}

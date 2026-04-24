@@ -1,9 +1,9 @@
-export default function SliderInput({ value, onChange, min = 1, max = 20 }) {
+export default function SliderInput({ value, onChange, min = 1, max = 20, label = 'Count per type' }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text)' }}>
-          Count per type
+          {label}
         </h3>
         <span
           style={{
