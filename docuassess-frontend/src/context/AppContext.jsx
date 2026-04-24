@@ -2,11 +2,12 @@ import { createContext, useContext, useReducer, useCallback } from 'react';
 
 const AppContext = createContext(null);
 
+const DEFAULT_COUNT_PER_TYPE = 5;
+
 const initialState = {
   fileId: null,
   fileMeta: null,       // { originalName, sizeMb, uploadedAt, pageCount, charCount, chunks }
-  selectedTypes: [],    // ['mcq', 'true_false', ...]
-  countPerType: 5,      // 1–20
+  questionConfig: {},   // e.g. { mcq: 5, true_false: 3 }
   results: null,        // { questions, meta }
   loading: false,
   error: null,
@@ -21,16 +22,29 @@ function reducer(state, action) {
         fileMeta: action.payload.meta,
         error: null,
         // Reset downstream state when new file is uploaded
-        selectedTypes: [],
-        countPerType: 5,
+        questionConfig: {},
         results: null,
       };
 
-    case 'SET_SELECTED_TYPES':
-      return { ...state, selectedTypes: action.payload };
+    case 'TOGGLE_TYPE': {
+      const type = action.payload;
+      const newConfig = { ...state.questionConfig };
+      if (type in newConfig) {
+        delete newConfig[type];
+      } else {
+        newConfig[type] = DEFAULT_COUNT_PER_TYPE;
+      }
+      return { ...state, questionConfig: newConfig };
+    }
 
-    case 'SET_COUNT':
-      return { ...state, countPerType: action.payload };
+    case 'SET_TYPE_COUNT': {
+      const { type: qType, count } = action.payload;
+      if (!(qType in state.questionConfig)) return state;
+      return {
+        ...state,
+        questionConfig: { ...state.questionConfig, [qType]: count },
+      };
+    }
 
     case 'SET_RESULTS':
       return { ...state, results: action.payload, loading: false, error: null };
@@ -57,20 +71,11 @@ export function AppProvider({ children }) {
   }, []);
 
   const toggleType = useCallback((type) => {
-    dispatch({
-      type: 'SET_SELECTED_TYPES',
-      payload: state.selectedTypes.includes(type)
-        ? state.selectedTypes.filter((t) => t !== type)
-        : [...state.selectedTypes, type],
-    });
-  }, [state.selectedTypes]);
-
-  const setSelectedTypes = useCallback((types) => {
-    dispatch({ type: 'SET_SELECTED_TYPES', payload: types });
+    dispatch({ type: 'TOGGLE_TYPE', payload: type });
   }, []);
 
-  const setCount = useCallback((count) => {
-    dispatch({ type: 'SET_COUNT', payload: count });
+  const setTypeCount = useCallback((type, count) => {
+    dispatch({ type: 'SET_TYPE_COUNT', payload: { type, count } });
   }, []);
 
   const setResults = useCallback((results) => {
@@ -89,12 +94,15 @@ export function AppProvider({ children }) {
     dispatch({ type: 'RESET' });
   }, []);
 
+  // Derive selectedTypes from questionConfig keys for backward compatibility
+  const selectedTypes = Object.keys(state.questionConfig);
+
   const value = {
     ...state,
+    selectedTypes,
     setFile,
     toggleType,
-    setSelectedTypes,
-    setCount,
+    setTypeCount,
     setResults,
     setLoading,
     setError,
