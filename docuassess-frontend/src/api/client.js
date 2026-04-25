@@ -52,3 +52,39 @@ export async function healthCheck() {
   const res = await fetch(`${API_BASE}/health`);
   return handleResponse(res);
 }
+
+/**
+ * POST /api/v1/export — export questions as downloadable JSON
+ * @param {Array} questions — flat array of generated questions
+ * @returns {Promise<void>} — triggers a file download in the browser
+ */
+export async function exportQuestions(questions) {
+  const res = await fetch(`${API_BASE}/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questions }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data?.error?.message || `Export failed (${res.status})`);
+  }
+
+  // Extract filename from Content-Disposition header, or use fallback
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const filenameMatch = disposition.match(/filename=(.+)/);
+  const filename = filenameMatch ? filenameMatch[1] : `questions_${Date.now()}.json`;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+
+  // Cleanup
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
