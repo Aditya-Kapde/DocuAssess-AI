@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { exportQuestions } from '../api/client';
 import AccordionSection from '../components/AccordionSection';
 import { TYPE_LABELS } from '../utils/questionTypes';
 
@@ -26,6 +27,22 @@ return acc;
 
 const questionTypes = Object.keys(groupedQuestions);
 const totalQuestions = questions?.length || 0;
+
+// ── Export state ──────────────────────────────────────────
+const [exporting, setExporting] = useState(false);
+const [exportError, setExportError] = useState(null);
+
+const handleExport = async () => {
+  setExporting(true);
+  setExportError(null);
+  try {
+    await exportQuestions(questions);
+  } catch (err) {
+    setExportError(err.message);
+  } finally {
+    setExporting(false);
+  }
+};
 
 return ( <div className="animate-fade-in">
 {/* Header */}
@@ -147,13 +164,14 @@ Generated questions </h1>
     )}
   </div>
 
-  {/* Back to configure */}
+  {/* Action buttons */}
   <div
     style={{
       display: 'flex',
       gap: '12px',
       marginTop: '32px',
       justifyContent: 'center',
+      flexWrap: 'wrap',
     }}
   >
     <button
@@ -181,7 +199,77 @@ Generated questions </h1>
     >
       ← Reconfigure
     </button>
+
+    {totalQuestions > 0 && (
+      <button
+        id="export-questions-btn"
+        onClick={handleExport}
+        disabled={exporting}
+        style={{
+          padding: '12px 28px',
+          borderRadius: 'var(--radius-full)',
+          border: 'none',
+          background: exporting
+            ? 'var(--color-surface-alt)'
+            : 'linear-gradient(135deg, var(--color-primary), #9B8CFF)',
+          color: '#fff',
+          fontSize: '14px',
+          fontWeight: 600,
+          fontFamily: 'var(--font-sans)',
+          cursor: exporting ? 'not-allowed' : 'pointer',
+          transition: 'all var(--transition)',
+          boxShadow: exporting ? 'none' : 'var(--shadow-glow)',
+          opacity: exporting ? 0.7 : 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+        onMouseEnter={(e) => {
+          if (!exporting) {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 0 28px rgba(124, 108, 255, 0.35)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'var(--shadow-glow)';
+        }}
+      >
+        {exporting ? (
+          <>
+            <span
+              style={{
+                width: '14px',
+                height: '14px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderTopColor: '#fff',
+                borderRadius: '50%',
+                animation: 'spin 0.6s linear infinite',
+                display: 'inline-block',
+              }}
+            />
+            Exporting…
+          </>
+        ) : (
+          '↓ Export Questions'
+        )}
+      </button>
+    )}
   </div>
+
+  {/* Export error feedback */}
+  {exportError && (
+    <p
+      style={{
+        textAlign: 'center',
+        marginTop: '12px',
+        fontSize: '13px',
+        color: 'var(--color-red)',
+      }}
+    >
+      Export failed: {exportError}
+    </p>
+  )}
 </div>
 
 );
