@@ -119,6 +119,63 @@ const multiSelectSchema = z
     }
   });
 
+// ── Image-based question schemas ─────────────────────────────────────────────
+
+/**
+ * Diagram MCQ: conceptual question about a diagram with options + answer + sourceImage.
+ */
+const diagramMcqSchema = z
+  .object({
+    question: z.string().min(5, 'Diagram MCQ question too short'),
+    options: z
+      .array(z.string().min(1))
+      .min(2, 'Diagram MCQ must have at least 2 options')
+      .max(6),
+    answer: z.string().min(1, 'Diagram MCQ answer must not be empty'),
+    sourceImage: z.union([z.string(), z.number()]).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (!val.options.includes(val.answer)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['answer'],
+        message: `Answer "${val.answer}" is not present in options`,
+      });
+    }
+  });
+
+/**
+ * Graph analysis: open-ended analytical question about a graph/chart.
+ */
+const graphAnalysisSchema = z.object({
+  question: z.string().min(5, 'Graph analysis question too short'),
+  answer: z.string().min(1, 'Graph analysis answer must not be empty'),
+  sourceImage: z.union([z.string(), z.number()]).optional(),
+});
+
+/**
+ * Label identification: identify a label/component from a diagram.
+ */
+const labelIdentificationSchema = z
+  .object({
+    question: z.string().min(5, 'Label identification question too short'),
+    options: z
+      .array(z.string().min(1))
+      .min(2, 'Label identification must have at least 2 options')
+      .max(6),
+    answer: z.string().min(1, 'Label identification answer must not be empty'),
+    sourceImage: z.union([z.string(), z.number()]).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (!val.options.includes(val.answer)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['answer'],
+        message: `Answer "${val.answer}" is not present in options`,
+      });
+    }
+  });
+
 /**
  * Schema registry — keyed by question type string.
  * Add new types here without touching normalizer logic.
@@ -130,6 +187,11 @@ const SCHEMA_REGISTRY = {
   match_following: matchFollowingSchema,
   ordering: orderingSchema,
   multi_select: multiSelectSchema,
+
+  // Image-based types
+  diagram_mcq: diagramMcqSchema,
+  graph_analysis: graphAnalysisSchema,
+  label_identification: labelIdentificationSchema,
 };
 
 module.exports = {
@@ -140,4 +202,7 @@ module.exports = {
   matchFollowingSchema,
   orderingSchema,
   multiSelectSchema,
+  diagramMcqSchema,
+  graphAnalysisSchema,
+  labelIdentificationSchema,
 };

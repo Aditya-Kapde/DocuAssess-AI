@@ -1,9 +1,10 @@
 const { retrieveContext } = require('./rag.service');
-const { buildPrompt } = require('../utils/promptBuilder');
+const { buildPrompt, buildImagePrompt, isImageBasedType, cleanVisualReferences } = require('../utils/promptBuilder');
 const { generateFromPrompt } = require('./ai.service');
 const { validateAndNormalize } = require('../utils/outputNormalizer');
 const { normalizeAiOutputKeys, normalizeAiOutputStructure } = require('../utils/typeMapping');
 const { normalizeForValidation } = require('../utils/preValidation');
+const { findBestImageMatch, isVisualConcept } = require('./imageChunk.service');
 const logger = require('../utils/logger');
 
 /**
@@ -263,8 +264,9 @@ const generateQuestions = async ({ fileId, questionConfig }) => {
     };
   }
 
-  // ── Stage 1: Retrieve context chunks (shared across all types) ───────────
-  const { contents, totalChunks } = await retrieveContext(fileId);
+  // ── Stage 1: Retrieve context (text chunks + image chunks) ───────────────
+  const { contents, totalChunks, imageChunks } = await retrieveContext(fileId);
+  logger.debug(`[generate.service] Image chunks available: ${imageChunks.length}`);
 
   if (!contents || contents.length === 0) {
     return {
@@ -283,17 +285,30 @@ const generateQuestions = async ({ fileId, questionConfig }) => {
   }
 
   logger.info(
-    `[generate.service] Retrieved ${contents.length}/${totalChunks} chunks for context`
+    `[generate.service] Retrieved ${contents.length}/${totalChunks} text chunks, ` +
+    `${imageChunks.length} image chunk(s) for context`
   );
 
-  // ── Stage 2: Generate per type (sequential) ──────────────────────────────
+  // ── Split config into text-based and image-based types ───────────────────
+  const textConfig = {};
+  const imageConfig = {};
+
+  for (const [type, count] of Object.entries(effectiveConfig)) {
+    if (isImageBasedType(type)) {
+      imageConfig[type] = count;
+    } else {
+      textConfig[type] = count;
+    }
+  }
+
+  // ── Stage 2a: Generate text-based types (existing logic — unchanged) ─────
   const allQuestions = [];
   const perTypeMeta = {};
   let anyAiError = null;
 
-  for (const [type, count] of Object.entries(effectiveConfig)) {
+  for (const [type, count] of Object.entries(textConfig)) {
     logger.info(
-      `[generate.service] ── Processing type: "${type}" (count: ${count}) ──`
+      `[generate.service] ── Processing text type: "${type}" (count: ${count}) ──`
     );
 
     const result = await generatePerType({
@@ -317,6 +332,51 @@ const generateQuestions = async ({ fileId, questionConfig }) => {
     logger.info(
       `[generate.service] Type "${type}": returned ${result.questions.length}/${count} questions`
     );
+  }
+
+  // ── Stage 2b: Generate image-based types (conditional) ───────────────────
+  if (Object.keys(imageConfig).length > 0) {
+    if (!imageChunks || imageChunks.length === 0) {
+      logger.warn(
+        `[generate.service] Image-based types requested but no image chunks available — skipping`
+      );
+      for (const [type, count] of Object.entries(imageConfig)) {
+        perTypeMeta[type] = {
+          requested: count,
+          returned: 0,
+          shortage: count,
+          attempts: 0,
+          retried: false,
+          skippedReason: 'NO_IMAGE_CHUNKS',
+        };
+      }
+    } else {
+      for (const [type, count] of Object.entries(imageConfig)) {
+        logger.info(
+          `[generate.service] ── Processing image type: "${type}" (count: ${count}) ──`
+        );
+
+        const result = await generatePerImageType({
+          imageChunks,
+          type,
+          count,
+        });
+
+        if (result.errorCode && result.questions.length === 0) {
+          anyAiError = { errorCode: result.errorCode, error: result.error };
+          logger.error(
+            `[generate.service] Image type "${type}" failed entirely: ${result.errorCode}`
+          );
+        }
+
+        result.questions.forEach((q) => allQuestions.push({ ...q, type }));
+        perTypeMeta[type] = result.meta;
+
+        logger.info(
+          `[generate.service] Image type "${type}": returned ${result.questions.length}/${count} questions`
+        );
+      }
+    }
   }
 
   // If no questions were generated at all and there was an AI error, propagate it
@@ -344,6 +404,139 @@ const generateQuestions = async ({ fileId, questionConfig }) => {
     q.id = `q-${i + 1}`;
   });
 
+  // ── Stage 3.5: Intelligent image attachment ───────────────────────────────
+  // Attaches images ONLY when the question text is relevant to the image.
+  // No blind fallback — avoids misleading or unrelated images.
+  if (imageChunks && imageChunks.length > 0) {
+    let attachedCount = 0;
+
+    /**
+     * Detects visual intent in question text via keyword matching.
+     * Used as a secondary signal alongside relevance score.
+     */
+    const hasVisualIntent = (text) => {
+      if (!text) return false;
+      const keywords = [
+        'diagram', 'figure', 'graph', 'chart', 'plot',
+        'number line', 'shape', 'illustration', 'shown',
+        'image', 'picture', 'table', 'map', 'label',
+        'flowchart', 'circuit', 'schematic', 'cross-section',
+      ];
+      const lower = text.toLowerCase();
+      return keywords.some((k) => lower.includes(k));
+    };
+
+    /**
+     * Normalizes an absolute/Windows path to a relative URL path.
+     */
+    const normalizePath = (rawPath) => {
+      let p = (rawPath || '').replace(/\\/g, '/');
+      const idx = p.indexOf('uploads/');
+      return idx !== -1 ? p.substring(idx) : p;
+    };
+
+    for (const question of allQuestions) {
+      // Step 1: Normalize question to { text, image } structure
+      if (!question.question || typeof question.question === 'string') {
+        question.question = {
+          text: question.question || '',
+          image: '',
+        };
+      } else if (typeof question.question === 'object') {
+        if (!question.question.text) question.question.text = '';
+        if (!question.question.image) question.question.image = '';
+      }
+
+      // Step 2: Read text safely
+      const questionText = question.question.text;
+      if (!questionText) continue; // skip empty questions
+
+      // Step 3: Find best matching image across ALL image chunks
+      const match = findBestImageMatch(questionText, imageChunks);
+
+      // Step 4: Determine if attachment is warranted
+      const visualIntent = hasVisualIntent(questionText);
+      const scoreThreshold = 0.2;
+      const shouldAttach = match && (match.score > scoreThreshold || visualIntent);
+
+      if (shouldAttach) {
+        const imgPath = normalizePath(match.chunk.path);
+
+        question.question.image = imgPath;
+        question.useImage = true;
+
+        // Prepend diagram reference if not already present
+        if (
+          !questionText.toLowerCase().includes('refer to') &&
+          !questionText.toLowerCase().includes('diagram shown')
+        ) {
+          question.question.text = `Refer to the diagram shown. ${questionText}`;
+        }
+
+        attachedCount++;
+        logger.debug(
+          `[generate.service] Attached image (page ${match.chunk.page}, ` +
+          `score: ${match.score.toFixed(3)}, visualIntent: ${visualIntent}) ` +
+          `→ "${imgPath}" to question "${question.id}"`
+        );
+      } else {
+        // No relevant image — ensure fields are clean
+        question.useImage = false;
+        question.question.image = '';
+
+        if (match) {
+          logger.debug(
+            `[generate.service] Skipped image for "${question.id}" — ` +
+            `score ${match.score.toFixed(3)} below threshold and no visual intent`
+          );
+        }
+      }
+    }
+
+    logger.info(
+      `[generate.service] Intelligent image attachment: ${attachedCount}/${allQuestions.length} question(s) matched`
+    );
+  }
+  // ── Stage 4: Normalize question structure + clean visual references ──────
+  // Ensures every question.question is { text, image } — even when no images exist.
+  // Also strips residual diagram/figure phrases from text-only questions.
+  allQuestions.forEach((q) => {
+    if (!q.question || typeof q.question === 'string') {
+      q.question = { text: q.question || '', image: '' };
+    } else if (typeof q.question === 'object') {
+      if (!q.question.text) q.question.text = '';
+      if (q.question.image === undefined || q.question.image === null) {
+        q.question.image = '';
+      }
+    }
+
+    // Post-processing: strip visual references from questions WITHOUT images
+    if (!q.question.image) {
+      const cleaned = cleanVisualReferences(q.question.text);
+      if (cleaned !== q.question.text) {
+        logger.debug(
+          `[generate.service] Cleaned visual ref from "${q.id}": "${q.question.text.substring(0, 60)}..." → "${cleaned.substring(0, 60)}..."`
+        );
+        q.question.text = cleaned;
+      }
+    }
+  });
+
+
+  if (!Array.isArray(allQuestions)) {
+    logger.error(
+      `[generate.service] CRITICAL: allQuestions is not an array! type=${typeof allQuestions}, value=${JSON.stringify(allQuestions)}`
+    );
+    allQuestions = [];
+  }
+
+  // ── Debug: Log final output sample ───────────────────────────────────────
+  if (allQuestions.length > 0) {
+    logger.debug(
+      `[generate.service] FINAL QUESTIONS SAMPLE: ${JSON.stringify(allQuestions[0], null, 2)}`
+    );
+  }
+
   logger.info(
     `[generate.service] ═══ Pipeline complete for fileId: ${fileId} ═══\n` +
     `  Total questions: ${allQuestions.length}\n` +
@@ -363,4 +556,153 @@ const generateQuestions = async ({ fileId, questionConfig }) => {
   };
 };
 
-module.exports = { generateQuestions, generatePerType };
+// ═══════════════════════════════════════════════════════════════════════════════
+// Image-based question generation
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Generates questions for a SINGLE image-based type with retry-on-shortage logic.
+ *
+ * Uses image chunk metadata (concepts, descriptions, labels) as context
+ * instead of text chunks. Reuses the same normalization + validation pipeline
+ * as text-based generation.
+ *
+ * @param {object} params
+ * @param {Array<{ type: 'image', page: number, concepts: string[], description: string, labels: string[] }>} params.imageChunks
+ * @param {string} params.type - e.g. 'diagram_mcq', 'graph_analysis', 'label_identification'
+ * @param {number} params.count - Exact number of questions to generate
+ * @returns {{ type: string, questions: object[], meta: object }}
+ */
+const generatePerImageType = async ({ imageChunks, type, count }) => {
+  let accumulated = [];
+  let attempts = 0;
+  let lastAiRetried = false;
+
+  logger.info(
+    `[generatePerImageType] ── Starting generation for image type: "${type}", requested count: ${count} ──`
+  );
+
+  while (accumulated.length < count && attempts < MAX_RETRIES) {
+    attempts++;
+    const remaining = count - accumulated.length;
+
+    logger.info(
+      `[generatePerImageType] "${type}" attempt ${attempts}/${MAX_RETRIES} — ` +
+      `requesting ${remaining} question(s), accumulated so far: ${accumulated.length}`
+    );
+
+    // ── Detect if visual concepts exist → pass forceImage to prompt ──────────
+    const hasVisualContent = imageChunks.some((ic) => isVisualConcept(ic.concepts));
+
+    // ── Build image-based prompt ─────────────────────────────────────────────
+    const { prompt, usedChunks } = buildImagePrompt({
+      imageChunks,
+      questionSpec: [{ type, count: remaining }],
+      forceImage: hasVisualContent,
+    });
+
+    logger.debug(
+      `[generatePerImageType] "${type}" image prompt built — usedChunks: ${usedChunks}`
+    );
+
+    // ── Call AI ──────────────────────────────────────────────────────────────
+    const aiResult = await generateFromPrompt(prompt);
+    lastAiRetried = aiResult.retried;
+
+    if (!aiResult.success) {
+      logger.error(
+        `[generatePerImageType] AI call failed for "${type}" on attempt ${attempts}: ${aiResult.errorCode}`
+      );
+      if (accumulated.length === 0) {
+        return {
+          type,
+          questions: [],
+          meta: {
+            requested: count,
+            returned: 0,
+            attempts,
+            retried: lastAiRetried,
+            usedChunks,
+          },
+          errorCode: aiResult.errorCode,
+          error: aiResult.error,
+        };
+      }
+      break;
+    }
+
+    // ── Reuse same normalization pipeline as text-based generation ───────────
+    const rawData = aiResult.data;
+
+    logger.debug(
+      `[generatePerImageType] "${type}" raw AI output — typeof: ${typeof rawData}, ` +
+      `isArray: ${Array.isArray(rawData)}`
+    );
+
+    const structuredData = normalizeAiOutputStructure(rawData, type);
+    const normalizedData = normalizeAiOutputKeys(structuredData);
+    const preValidatedData = normalizeForValidation(normalizedData, type);
+
+    const preValCount = Array.isArray(preValidatedData?.[type])
+      ? preValidatedData[type].length
+      : 0;
+    logger.info(
+      `[generatePerImageType] "${type}": ${preValCount} items BEFORE validation`
+    );
+
+    const { validatedQuestions, validationMeta } = validateAndNormalize(
+      preValidatedData,
+      [{ type, count: remaining }]
+    );
+
+    const valid = validatedQuestions[type] || [];
+
+    logger.info(
+      `[generatePerImageType] "${type}": ${valid.length} items AFTER validation ` +
+      `(${preValCount - valid.length} rejected)`
+    );
+
+    accumulated.push(...valid);
+
+    if (accumulated.length >= count) break;
+
+    logger.warn(
+      `[generatePerImageType] "${type}": attempt ${attempts} yielded ` +
+      `${valid.length}/${remaining} — ${accumulated.length}/${count} accumulated, retrying...`
+    );
+  }
+
+  // ── Trim if over ──────────────────────────────────────────────────────────
+  if (accumulated.length > count) {
+    logger.debug(`[generatePerImageType] "${type}": trimming ${accumulated.length} → ${count}`);
+    accumulated = accumulated.slice(0, count);
+  }
+
+  const shortage = count - accumulated.length;
+  if (shortage > 0) {
+    logger.warn(
+      `[generatePerImageType] "${type}": exhausted ${MAX_RETRIES} attempts — ` +
+      `returning ${accumulated.length}/${count} (shortage: ${shortage})`
+    );
+  } else {
+    logger.info(
+      `[generatePerImageType] "${type}": ✓ successfully generated ${accumulated.length}/${count} questions in ${attempts} attempt(s)`
+    );
+  }
+
+  return {
+    type,
+    questions: accumulated,
+    meta: {
+      requested: count,
+      returned: accumulated.length,
+      shortage,
+      attempts,
+      retried: lastAiRetried,
+    },
+    errorCode: null,
+    error: null,
+  };
+};
+
+module.exports = { generateQuestions, generatePerType, generatePerImageType };
