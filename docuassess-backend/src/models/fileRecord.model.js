@@ -10,6 +10,33 @@ const chunkSubSchema = new mongoose.Schema(
   { _id: false } // no separate _id per chunk — chunkId is sufficient
 );
 
+/**
+ * Sub-schema for images extracted from PDF pages.
+ *
+ * @property {Number}   page                - 1-based page number the image was found on
+ * @property {String}   path                - relative or absolute path to the extracted image file
+ * @property {Date}     extractedAt         - timestamp when the image was extracted
+ * @property {Object}   [metadata]          - optional AI-derived metadata
+ * @property {String}   [metadata.type]     - image type (e.g. 'chart', 'photo', 'diagram')
+ * @property {String[]} [metadata.concepts] - key concepts identified in the image
+ * @property {String}   [metadata.description] - brief description of the image content
+ */
+const imageSubSchema = new mongoose.Schema(
+  {
+    page:        { type: Number, required: true },
+    path:        { type: String, required: true },
+    extractedAt: { type: Date,   default: Date.now },
+    metadata: {
+      type: {
+        type:        String,
+      },
+      concepts:    { type: [String], default: [] },
+      description: { type: String,   default: null },
+    },
+  },
+  { _id: false }
+);
+
 const fileRecordSchema = new mongoose.Schema(
   {
     fileId: {
@@ -31,6 +58,9 @@ const fileRecordSchema = new mongoose.Schema(
     // Chunking results (populated after chunk.service)
     chunks:     { type: [chunkSubSchema], default: [] },
     chunkCount: { type: Number, default: 0 },
+
+    // Extracted images (populated after image extraction, if applicable)
+    images: { type: [imageSubSchema], default: [] },
 
     // Pipeline status
     status: {

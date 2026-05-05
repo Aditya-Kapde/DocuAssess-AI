@@ -237,7 +237,70 @@ const normalizeMatchFollowing = (q) => {
   };
 };
 
-// ─── Dispatcher ────────────────────────────────────────────────────────────────
+// ── Image-based type normalizers ───────────────────────────────────────────────
+
+/**
+ * Diagram MCQ: Same logic as MCQ — fix answer to match an option exactly.
+ */
+const normalizeDiagramMcq = (q) => {
+  if (!q || typeof q !== 'object') return q;
+
+  const options = Array.isArray(q.options)
+    ? q.options.map((o) => normalizeWhitespace(o))
+    : q.options;
+
+  let answer = normalizeWhitespace(q.answer);
+
+  if (answer && Array.isArray(options)) {
+    answer = findExactMatch(answer, options);
+  }
+
+  return {
+    ...q,
+    question: normalizeWhitespace(q.question),
+    options,
+    answer,
+  };
+};
+
+/**
+ * Graph analysis: Normalize whitespace on question and answer.
+ */
+const normalizeGraphAnalysis = (q) => {
+  if (!q || typeof q !== 'object') return q;
+
+  return {
+    ...q,
+    question: normalizeWhitespace(q.question),
+    answer: normalizeWhitespace(q.answer),
+  };
+};
+
+/**
+ * Label identification: Same logic as MCQ — fix answer to match an option exactly.
+ */
+const normalizeLabelIdentification = (q) => {
+  if (!q || typeof q !== 'object') return q;
+
+  const options = Array.isArray(q.options)
+    ? q.options.map((o) => normalizeWhitespace(o))
+    : q.options;
+
+  let answer = normalizeWhitespace(q.answer);
+
+  if (answer && Array.isArray(options)) {
+    answer = findExactMatch(answer, options);
+  }
+
+  return {
+    ...q,
+    question: normalizeWhitespace(q.question),
+    options,
+    answer,
+  };
+};
+
+// ── Dispatcher ─────────────────────────────────────────────────────────────────
 
 /**
  * Type → normalizer function mapping.
@@ -249,6 +312,11 @@ const TYPE_NORMALIZERS = {
   multi_select: normalizeMultiSelect,
   ordering: normalizeOrdering,
   match_following: normalizeMatchFollowing,
+
+  // Image-based types
+  diagram_mcq: normalizeDiagramMcq,
+  graph_analysis: normalizeGraphAnalysis,
+  label_identification: normalizeLabelIdentification,
 };
 
 /**

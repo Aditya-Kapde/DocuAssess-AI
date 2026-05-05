@@ -59,10 +59,24 @@ export async function healthCheck() {
  * @returns {Promise<void>} — triggers a file download in the browser
  */
 export async function exportQuestions(questions) {
+  // Normalize: convert new { text, image } question format back to plain string
+  // that the export backend expects, while preserving image as a top-level field.
+  const normalizedQuestions = (questions || []).map((q) => ({
+    ...q,
+    question:
+      typeof q?.question === 'object' && q.question !== null
+        ? q.question?.text || ''
+        : q?.question || '',
+    image:
+      typeof q?.question === 'object' && q.question !== null
+        ? q.question?.image || null
+        : null,
+  }));
+
   const res = await fetch(`${API_BASE}/export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
+    body: JSON.stringify({ questions: normalizedQuestions }),
   });
 
   if (!res.ok) {
