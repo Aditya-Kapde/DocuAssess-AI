@@ -11,6 +11,11 @@ const QUESTION_TYPE_LABELS = {
   match_following: 'Match the Following',
   ordering: 'Ordering / Sequencing Questions',
   multi_select: 'Multiple Select Questions (choose all that apply)',
+
+  // Image-based question types
+  diagram_mcq: 'Diagram-based Multiple Choice Questions',
+  graph_analysis: 'Graph / Chart Analysis Questions',
+  label_identification: 'Label Identification Questions',
 };
 
 /**
@@ -65,6 +70,34 @@ const SCHEMA_TEMPLATES = {
       "question": "<question string>",
       "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
       "answers": ["<correct option 1>", "<correct option 2>"]
+    }
+  ]`,
+
+  // ── Image-based types ─────────────────────────────────────────────────
+
+  diagram_mcq: `"diagram_mcq": [
+    {
+      "question": "<conceptual question about the diagram>",
+      "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
+      "answer": "<exact text of correct option>",
+      "sourceImage": "<page number the diagram is from>"
+    }
+  ]`,
+
+  graph_analysis: `"graph_analysis": [
+    {
+      "question": "<analytical question about the graph/chart>",
+      "answer": "<concise factual answer>",
+      "sourceImage": "<page number the graph is from>"
+    }
+  ]`,
+
+  label_identification: `"label_identification": [
+    {
+      "question": "<question asking to identify a label or component>",
+      "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
+      "answer": "<exact text of correct option>",
+      "sourceImage": "<page number the image is from>"
     }
   ]`,
 };
@@ -215,10 +248,10 @@ const buildPrompt = ({ chunkContents, questionSpec, maxContextLength }) => {
   // ── Final prompt ──────────────────────────────────────────────────────────
   const prompt = `
 You are an assessment generator. Your job is to create assessment questions
-based on the CONTEXT provided below.
+based ONLY on the TEXT CONTEXT provided below. No visual elements exist.
 
 ════════════════════════════════════════
-RULES
+RULES (STRICT — VIOLATIONS INVALIDATE OUTPUT)
 ════════════════════════════════════════
 1. Base all questions on the CONTEXT below.
 2. You may use reasonable inference and paraphrasing based on the context.
@@ -228,6 +261,28 @@ RULES
 6. Return ONLY a valid JSON object — no explanation, no markdown, no preamble.
 7. Do NOT include any text outside the JSON object.
 8. The JSON must strictly follow the OUTPUT SCHEMA defined below.
+
+════════════════════════════════════════
+CRITICAL: TEXT-ONLY CONSTRAINT
+════════════════════════════════════════
+You MUST NOT include any reference to diagrams, figures, charts, images,
+illustrations, or visual elements under ANY circumstance. If you do,
+the ENTIRE output is INVALID and will be rejected.
+
+Each question must be fully understandable WITHOUT any external visual context.
+If a question would require a diagram or image to make sense, DO NOT generate
+that question — replace it with a different text-based question instead.
+
+Return ONLY clean text-based questions. Do NOT assume any visual information exists.
+
+FORBIDDEN WORDS (must NEVER appear in any question text):
+diagram, figure, shown, image, illustration, graph, chart, picture,
+"refer to", "based on the figure", "see the image", "as shown"
+
+Before finalizing your response, verify that NONE of the forbidden words
+appear anywhere in your output. Any violation makes the output incorrect.
+
+Any violation of these rules makes the answer incorrect. Strictly comply.
 
 ════════════════════════════════════════
 CONTEXT
@@ -252,12 +307,14 @@ OUTPUT SCHEMA (follow exactly)
 ${outputSchemaBlock}
 
 ════════════════════════════════════════
-REMINDER
+FINAL REMINDER
 ════════════════════════════════════════
 - Output ONLY the JSON object. No extra text.
 - Every question and answer must relate to the CONTEXT.
 - You MUST produce EXACTLY the requested count for each question type.
-- Always attempt to generate at least one valid question per requested type if any relevant content exists.
+- This is a TEXT-ONLY task. ZERO visual references allowed.
+- Forbidden words trigger automatic rejection.
+- Strictly comply — any violation makes the output incorrect.
 `.trim();
 
 
@@ -278,10 +335,188 @@ REMINDER
   };
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Image-based prompt builder
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Set of question types that require image-derived context.
+ */
+const IMAGE_BASED_TYPES = new Set([
+  'diagram_mcq',
+  'graph_analysis',
+  'label_identification',
+]);
+
+/**
+ * Checks whether a question type uses image-derived context.
+ * @param {string} type
+ * @returns {boolean}
+ */
+const isImageBasedType = (type) => IMAGE_BASED_TYPES.has(type);
+
+/**
+ * Assembles a text-based context block from image chunk metadata.
+ * Each image chunk contributes: page, concepts, description, labels.
+ *
+ * @param {Array<{ page: number, concepts: string[], description: string, labels: string[] }>} imageChunks
+ * @returns {string}
+ */
+const assembleImageContext = (imageChunks) => {
+  return imageChunks
+    .map((chunk) => {
+      const parts = [
+        `[Page ${chunk.page}]`,
+        `Description: ${chunk.description || 'N/A'}`,
+        `Concepts: ${(chunk.concepts || []).join(', ') || 'N/A'}`,
+      ];
+      if (chunk.labels && chunk.labels.length > 0) {
+        parts.push(`Labels: ${chunk.labels.join(', ')}`);
+      }
+      return parts.join('\n');
+    })
+    .join('\n\n---\n\n');
+};
+
+/**
+ * Builds a prompt for image-based question generation.
+ * Uses image chunk metadata (concepts, descriptions, labels) as context
+ * instead of raw text chunks.
+ *
+ * @param {object} params
+ * @param {Array<{ page: number, concepts: string[], description: string, labels: string[] }>} params.imageChunks
+ * @param {{ type: string, count: number }[]} params.questionSpec
+ * @param {boolean} [params.forceImage=false] - When true, instructs the AI that the image WILL be shown
+ * @returns {{
+ *   prompt: string,
+ *   usedChunks: number,
+ *   truncated: boolean
+ * }}
+ */
+const buildImagePrompt = ({ imageChunks, questionSpec, forceImage = false }) => {
+  if (!Array.isArray(imageChunks) || imageChunks.length === 0) {
+    throw new Error('[promptBuilder] imageChunks must be a non-empty array');
+  }
+
+  if (!Array.isArray(questionSpec) || questionSpec.length === 0) {
+    throw new Error('[promptBuilder] questionSpec must be a non-empty array');
+  }
+
+  const imageContext = assembleImageContext(imageChunks);
+  const questionSpecBlock = buildQuestionSpec(questionSpec);
+  const types = questionSpec.map((s) => s.type);
+  const outputSchemaBlock = buildOutputSchema(types);
+
+  // Conditionally add force-image instruction
+  const forceImageBlock = forceImage
+    ? `
+════════════════════════════════════════
+IMAGE USAGE (MANDATORY)
+════════════════════════════════════════
+A relevant image WILL be shown to the student alongside these questions.
+- This question MUST use the provided image. Do not describe it fully. Refer to it.
+- Write questions that REQUIRE looking at the image to answer (e.g. "Refer to the diagram shown.").
+- Set "useImage": true on EVERY question.
+- Do NOT re-describe what the image shows — assume the student can see it.
+`
+    : '';
+
+  const prompt = `
+You are given image-derived context extracted from a document.
+Generate conceptual and diagram-based questions based on this context.
+
+════════════════════════════════════════
+RULES
+════════════════════════════════════════
+1. Base all questions on the IMAGE CONTEXT below.
+2. Questions should test understanding of visual elements: diagrams, graphs, labels, and relationships.
+3. DO NOT use external knowledge or general facts unrelated to the context.
+4. Every answer MUST be verifiable or derivable from the context.
+5. Return ONLY a valid JSON object — no explanation, no markdown, no preamble.
+6. Do NOT include any text outside the JSON object.
+7. The JSON must strictly follow the OUTPUT SCHEMA defined below.
+8. Include the "sourceImage" field referencing the page number.
+9. If a question depends on visual context (diagram, graph, chart, image), refer to it
+   without describing it fully (e.g. "Refer to the diagram on page X") and add "useImage": true
+   to that question object. If the question is purely text-based, set "useImage": false or omit it.
+${forceImageBlock}
+════════════════════════════════════════
+IMAGE CONTEXT
+════════════════════════════════════════
+"""
+${imageContext}
+"""
+
+════════════════════════════════════════
+GENERATION TASK
+════════════════════════════════════════
+Generate EXACTLY the following from the IMAGE CONTEXT above. No more, no less.
+${questionSpecBlock}
+
+You MUST generate EXACTLY the specified number of questions for each type.
+Generating fewer or more than the requested count is a violation.
+
+════════════════════════════════════════
+OUTPUT SCHEMA (follow exactly)
+════════════════════════════════════════
+${outputSchemaBlock}
+
+════════════════════════════════════════
+REMINDER
+════════════════════════════════════════
+- Output ONLY the JSON object. No extra text.
+- Every question and answer must relate to the IMAGE CONTEXT.
+- You MUST produce EXACTLY the requested count for each question type.
+- Always reference the page number in the "sourceImage" field.
+- Set "useImage": true on any question that requires seeing the original image to answer.
+`.trim();
+
+  logger.info(
+    `[promptBuilder] Image prompt built — types: [${types.join(', ')}], ` +
+    `imageChunks: ${imageChunks.length}, forceImage: ${forceImage}`
+  );
+
+  return {
+    prompt,
+    usedChunks: imageChunks.length,
+    truncated: false,
+  };
+};
+
+/**
+ * Post-processing cleanup: strips any residual visual references
+ * that the AI may have generated despite prompt constraints.
+ * Applied to question text AFTER AI generation as a safety net.
+ *
+ * @param {string} text - Raw question text from AI
+ * @returns {string} - Cleaned text with visual references removed
+ */
+const cleanVisualReferences = (text) => {
+  if (!text || typeof text !== 'string') return text || '';
+  return text
+    .replace(/refer to the diagram shown\.?\s*/gi, '')
+    .replace(/refer to the diagram\.?\s*/gi, '')
+    .replace(/refer to the figure\.?\s*/gi, '')
+    .replace(/based on the figure\.?\s*/gi, '')
+    .replace(/see the image\.?\s*/gi, '')
+    .replace(/as shown in the (?:diagram|figure|image|illustration)\.?\s*/gi, '')
+    .replace(/as shown\.?\s*/gi, '')
+    .replace(/in the (?:diagram|figure) (?:below|above|shown)\.?\s*/gi, '')
+    .replace(/looking at the (?:diagram|figure|image)\.?\s*/gi, '')
+    .replace(/from the (?:diagram|figure|image)\.?\s*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
 module.exports = {
   buildPrompt,
-  assembleContext,      // exported for unit testing
-  buildQuestionSpec,    // exported for unit testing
-  buildOutputSchema,    // exported for unit testing
-  QUESTION_TYPE_LABELS, // exported for use in validator
-};
+  buildImagePrompt,
+  cleanVisualReferences,   // post-processing cleanup
+  assembleContext,         // exported for unit testing
+  assembleImageContext,    // exported for unit testing
+  buildQuestionSpec,       // exported for unit testing
+  buildOutputSchema,       // exported for unit testing
+  QUESTION_TYPE_LABELS,    // exported for use in validator
+  IMAGE_BASED_TYPES,       // exported for type detection
+  isImageBasedType,        // exported for type detection
+};

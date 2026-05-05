@@ -90,7 +90,7 @@ export default function AccordionSection({ type, questions, defaultOpen = false 
             gap: '12px',
           }}
         >
-          {questions.map((q, i) => (
+          {(questions || []).map((q, i) => (
             <QuestionItem key={i} type={type} question={q} index={i + 1} color={color} />
           ))}
         </div>
@@ -100,6 +100,26 @@ export default function AccordionSection({ type, questions, defaultOpen = false 
 }
 
 /* ── Individual Question Renderer ────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────────── */
+const getQuestionText = (q) =>
+  typeof q === 'object' && q !== null ? q?.text || '' : q || '';
+
+const QuestionImage = ({ question: q }) => {
+  const img = typeof q === 'object' && q !== null ? q?.image : null;
+  if (!img) return null;
+  return (
+    <img
+      src={`${process.env.VITE_BASE_URL}/${img}`}
+      alt="question"
+      style={{
+        maxWidth: '300px',
+        marginTop: '10px',
+        borderRadius: '8px',
+      }}
+    />
+  );
+};
+
 function QuestionItem({ type, question, index, color }) {
   const cardStyle = {
     padding: '16px 20px',
@@ -130,7 +150,8 @@ function QuestionItem({ type, question, index, color }) {
       return (
         <div style={cardStyle}>
           <div style={questionNumStyle}>Q{index}</div>
-          <p style={questionTextStyle}>{question.question}</p>
+          <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
+          <QuestionImage question={question.question} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {question.options?.map((opt, i) => {
               const isCorrect = opt === question.answer;
@@ -184,7 +205,8 @@ function QuestionItem({ type, question, index, color }) {
       return (
         <div style={cardStyle}>
           <div style={questionNumStyle}>Q{index}</div>
-          <p style={questionTextStyle}>{question.question}</p>
+          <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
+          <QuestionImage question={question.question} />
           <span
             style={{
               display: 'inline-block',
@@ -206,7 +228,8 @@ function QuestionItem({ type, question, index, color }) {
       return (
         <div style={cardStyle}>
           <div style={questionNumStyle}>Q{index}</div>
-          <p style={questionTextStyle}>{question.question}</p>
+          <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
+          <QuestionImage question={question.question} />
           <div
             style={{
               padding: '10px 14px',
@@ -266,7 +289,8 @@ function QuestionItem({ type, question, index, color }) {
       return (
         <div style={cardStyle}>
           <div style={questionNumStyle}>Q{index}</div>
-          <p style={questionTextStyle}>{question.question}</p>
+          <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
+          <QuestionImage question={question.question} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {question.correct_order?.map((item, i) => (
               <div
@@ -310,7 +334,8 @@ function QuestionItem({ type, question, index, color }) {
       return (
         <div style={cardStyle}>
           <div style={questionNumStyle}>Q{index}</div>
-          <p style={questionTextStyle}>{question.question}</p>
+          <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
+          <QuestionImage question={question.question} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {question.options?.map((opt, i) => {
               const isCorrect = question.answers?.includes(opt);

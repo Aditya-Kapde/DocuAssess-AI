@@ -46,6 +46,23 @@ const AI_OUTPUT_ALIASES = {
   sequencing: 'ordering',
   sorting: 'ordering',
   sequence: 'ordering',
+
+  // ── Image-based types (identity + variants) ─────────────────────────────
+  diagram_mcq: 'diagram_mcq',
+  graph_analysis: 'graph_analysis',
+  label_identification: 'label_identification',
+
+  // camelCase variants
+  diagramMcq: 'diagram_mcq',
+  graphAnalysis: 'graph_analysis',
+  labelIdentification: 'label_identification',
+
+  // Alternative names the AI might use
+  diagram_mcqs: 'diagram_mcq',
+  graph_questions: 'graph_analysis',
+  chart_analysis: 'graph_analysis',
+  label_questions: 'label_identification',
+  labeling: 'label_identification',
 };
 
 /**
