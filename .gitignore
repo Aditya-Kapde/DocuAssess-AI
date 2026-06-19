@@ -1,0 +1,23 @@
+# Python
+python-service/venv/
+python-service/.venv/
+python-service/output/
+python-service/uploads/
+
+# Backend
+docuassess-backend/node_modules/
+docuassess-backend/uploads/
+docuassess-backend/.env
+
+# Frontend
+docuassess-frontend/node_modules/
+docuassess-frontend/dist/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
