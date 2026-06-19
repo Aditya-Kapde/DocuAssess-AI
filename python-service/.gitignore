@@ -1,0 +1,10 @@
+venv/
+.venv/
+
+output/
+uploads/
+
+__pycache__/
+*.pyc
+
+.env
