@@ -106,10 +106,15 @@ const getQuestionText = (q) =>
 
 const QuestionImage = ({ question: q }) => {
   const img = typeof q === 'object' && q !== null ? q?.image : null;
+
   if (!img) return null;
+
+  const imageUrl =
+    `${import.meta.env.VITE_API_BASE.replace('/api/v1', '')}/${img}`;
+
   return (
     <img
-      src={`${process.env.VITE_BASE_URL}/${img}`}
+      src={imageUrl}
       alt="question"
       style={{
         maxWidth: '300px',
