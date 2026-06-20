@@ -96,46 +96,18 @@ const processUploadWithExtraction = async (file) => {
         );
       } else {
         logger.info(
-          `[upload.service] Python visual extraction returned no visuals for fileId ${fileId} — falling back to native extraction`
+          `[upload.service] Python visual extraction returned no visuals for fileId ${fileId}`
         );
       }
 
-      const imageResult = await extractImagesFromPdf(file.path, fileId);
-      if (imageResult.success && Array.isArray(imageResult.images)) {
-        extractedImages = imageResult.images.map((img) => ({
-          page: img.page,
-          path: img.path,
-          extractedAt: new Date(),
-        }));
-      }
-
       logger.info(
-        `[upload.service] Extracted ${extractedImages.length} image(s) from PDF via fallback — fileId: ${fileId}`
+        `[upload.service] Skipping fallback extraction — using empty image list for fileId: ${fileId}`
       );
     }
   } catch (err) {
     logger.warn(
-      `[upload.service] Python visual extraction failed for fileId ${fileId} (non-fatal): ${err.message}`
+      `[upload.service] Python visual extraction failed for fileId ${fileId} (non-fatal): ${err.message} — skipping fallback, using empty image list`
     );
-
-    try {
-      const imageResult = await extractImagesFromPdf(file.path, fileId);
-      if (imageResult.success && Array.isArray(imageResult.images)) {
-        extractedImages = imageResult.images.map((img) => ({
-          page: img.page,
-          path: img.path,
-          extractedAt: new Date(),
-        }));
-      }
-
-      logger.info(
-        `[upload.service] Extracted ${extractedImages.length} image(s) from PDF via fallback — fileId: ${fileId}`
-      );
-    } catch (fallbackErr) {
-      logger.warn(
-        `[upload.service] Fallback image extraction also failed for fileId ${fileId} (non-fatal): ${fallbackErr.message}`
-      );
-    }
   }
 
   // ── Stage 4: Persist extraction + chunk + image results ─────────────────

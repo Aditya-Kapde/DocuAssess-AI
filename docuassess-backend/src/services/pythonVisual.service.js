@@ -5,6 +5,10 @@ const logger = require('../utils/logger');
 
 const PYTHON_VISUAL_URL = process.env.PYTHON_VISUAL_URL || 'http://localhost:8000/crop-visuals';
 const PYTHON_VISUAL_TIMEOUT_MS = parseInt(process.env.PYTHON_VISUAL_TIMEOUT_MS, 10) || 15000;
+console.log(
+  'PYTHON_VISUAL_TIMEOUT_MS =',
+  PYTHON_VISUAL_TIMEOUT_MS
+);
 
 let fetchFn = null;
 let FormDataConstructor = null;
