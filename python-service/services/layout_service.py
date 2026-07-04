@@ -59,14 +59,24 @@ def analyze_pdf_layout(pdf_path: Path) -> List[dict]:
     # This avoids OCR entirely by extracting page layout regions directly from
     # the PDF file with the native layout model. This keeps the endpoint
     # focused on visual-layout analysis for tables, figures, images, and diagrams.
-    document_layout = process_file_with_model(
-        filename=str(pdf_path),
-        model_name=None,
-        is_image=False,
-        pdf_image_dpi=200,
-        pdf_render_max_pixels_per_page=10_000_000,
-        password=None,
+    try:
+        document_layout = process_file_with_model(
+            filename=str(pdf_path),
+            model_name=None,
+            is_image=False,
+            pdf_image_dpi=200,
+            pdf_render_max_pixels_per_page=10_000_000,
+            password=None,
     )
+
+    except TypeError:
+        document_layout = process_file_with_model(
+            filename=str(pdf_path),
+            model_name=None,
+            is_image=False,
+            pdf_image_dpi=200,
+            password=None,
+        )
 
     # Convert the layout model output into unstructured elements with coordinates.
     document_elements = document_to_element_list(

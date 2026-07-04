@@ -21,13 +21,6 @@ def health_get():
     })
 
 
-@app.post("/health")
-def health_post():
-    return JSONResponse({
-        "status": "healthy",
-        "service": "python-visual-service"
-    })
-
 
 @app.post("/process-pdf")
 async def process_pdf(file: UploadFile = File(...)):
