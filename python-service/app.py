@@ -13,9 +13,20 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
+@app.get("/health")
+def health_get():
+    return JSONResponse({
+        "status": "healthy",
+        "service": "python-visual-service"
+    })
+
+
 @app.post("/health")
-def health_check():
-    return JSONResponse({"status": "ok"})
+def health_post():
+    return JSONResponse({
+        "status": "healthy",
+        "service": "python-visual-service"
+    })
 
 
 @app.post("/process-pdf")
