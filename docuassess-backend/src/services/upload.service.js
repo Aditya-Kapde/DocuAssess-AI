@@ -78,6 +78,9 @@ const processUploadWithExtraction = async (file) => {
   let extractedImages = [];
   try {
     const pythonResult = await fetchVisualImages(file.path, fileId);
+    console.log("========== PYTHON RESULT ==========");
+    console.log(JSON.stringify(pythonResult, null, 2));
+    console.log("==================================");
 
     if (pythonResult.success && Array.isArray(pythonResult.images) && pythonResult.images.length > 0) {
       extractedImages = pythonResult.images.map((img) => ({

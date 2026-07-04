@@ -261,6 +261,10 @@ const fetchVisualImages = async (pdfPath, fileId) => {
   let images;
   try {
     images = _parseVisuals(payload, fileId);
+    console.log("========== PYTHON VISUALS ==========");
+    console.log(JSON.stringify(payload, null, 2));
+    console.log("Visual count:", images.length);
+    console.log("===================================");
   } catch (err) {
     logger.warn(`[pythonVisual.service] Visual parsing failed: ${err.message}`);
     return {
