@@ -64,7 +64,7 @@ def analyze_pdf_layout(pdf_path: Path) -> List[dict]:
             filename=str(pdf_path),
             model_name=None,
             is_image=False,
-            pdf_image_dpi=200,
+            pdf_image_dpi=96,
             pdf_render_max_pixels_per_page=10_000_000,
             password=None,
     )
@@ -74,7 +74,7 @@ def analyze_pdf_layout(pdf_path: Path) -> List[dict]:
             filename=str(pdf_path),
             model_name=None,
             is_image=False,
-            pdf_image_dpi=200,
+            pdf_image_dpi=96,
             password=None,
         )
 
