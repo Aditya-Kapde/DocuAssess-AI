@@ -290,16 +290,50 @@ const generateQuestions = async ({ fileId, questionConfig }) => {
   );
 
   // ── Split config into text-based and image-based types ───────────────────
-  const textConfig = {};
-  const imageConfig = {};
+const textConfig = {};
+const imageConfig = {};
 
-  for (const [type, count] of Object.entries(effectiveConfig)) {
-    if (isImageBasedType(type)) {
-      imageConfig[type] = count;
-    } else {
-      textConfig[type] = count;
-    }
+for (const [type, count] of Object.entries(effectiveConfig)) {
+
+  // User explicitly requested an image question type
+  if (isImageBasedType(type)) {
+    imageConfig[type] = count;
+    continue;
   }
+
+  // Automatically allocate some MCQs to diagram MCQs
+  if (
+    type === "mcq" &&
+    imageChunks &&
+    imageChunks.length > 0
+  ) {
+
+    // 30% image questions (minimum 1)
+    const imageCount = Math.max(
+      1,
+      Math.min(
+        Math.round(count * 0.3),
+        imageChunks.length
+      )
+    );
+
+    const textCount = count - imageCount;
+
+    if (textCount > 0) {
+      textConfig.mcq = textCount;
+    }
+
+    imageConfig.diagram_mcq = imageCount;
+
+    logger.info(
+      `[generate.service] Auto-balanced MCQs -> ${textCount} text + ${imageCount} image`
+    );
+
+    continue;
+  }
+
+  textConfig[type] = count;
+}
 
   // ── Stage 2a: Generate text-based types (existing logic — unchanged) ─────
   const allQuestions = [];
@@ -369,7 +403,12 @@ const generateQuestions = async ({ fileId, questionConfig }) => {
           );
         }
 
-        result.questions.forEach((q) => allQuestions.push({ ...q, type }));
+        result.questions.forEach((q) =>
+            allQuestions.push({
+              ...q,
+              type: "mcq",
+            })
+          );
         perTypeMeta[type] = result.meta;
 
         logger.info(

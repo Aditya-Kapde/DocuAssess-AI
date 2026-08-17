@@ -105,16 +105,32 @@ const getQuestionText = (q) =>
   typeof q === 'object' && q !== null ? q?.text || '' : q || '';
 
 const QuestionImage = ({ question: q }) => {
-  const img = typeof q === 'object' && q !== null ? q?.image : null;
+  const img = typeof q === "object" && q !== null ? q?.image : null;
+
+  console.log("QUESTION OBJECT:", q);
+  console.log("IMAGE FIELD:", img);
+  console.log("API BASE:", import.meta.env.VITE_API_BASE);
+
   if (!img) return null;
+
+  const backend =
+    (import.meta.env.VITE_API_BASE || "http://localhost:5000/api/v1")
+      .replace("/api/v1", "");
+
+  console.log("BACKEND:", backend);
+
+  const imageUrl = `${backend}/${img}`;
+
+  console.log("FINAL URL:", imageUrl);
+
   return (
     <img
-      src={`${process.env.VITE_BASE_URL}/${img}`}
+      src={imageUrl}
       alt="question"
       style={{
-        maxWidth: '300px',
-        marginTop: '10px',
-        borderRadius: '8px',
+        maxWidth: "300px",
+        marginTop: "10px",
+        borderRadius: "8px",
       }}
     />
   );

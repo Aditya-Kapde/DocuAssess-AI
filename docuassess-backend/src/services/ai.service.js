@@ -1,4 +1,4 @@
-const { getGeminiModel } = require('../config/gemini.config');
+const AI = require('../providers/aiProvider');
 const { safeJsonParse, buildJsonFixPrompt } = require('../utils/jsonParser');
 const logger = require('../utils/logger');
 
@@ -23,23 +23,12 @@ const generateFromPrompt = async (prompt) => {
     throw new Error('[ai.service] Prompt must be a non-empty string');
   }
 
-  const model = getGeminiModel(MODEL_NAME);
-
   // ── Attempt 1: Primary generation ────────────────────────────────────────
   let rawOutput;
   try {
     logger.info(`[ai.service] Sending prompt to Gemini (model: ${MODEL_NAME})`);
 
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }]
-        }
-      ]
-    });
-
-    rawOutput = result.response.text();
+    rawOutput = await AI.generateText(prompt);
 
     logger.debug(
       `[ai.service] Raw response (first 300 chars): ${rawOutput?.slice(0, 300)}`
@@ -77,16 +66,7 @@ const generateFromPrompt = async (prompt) => {
   try {
     const fixPrompt = buildJsonFixPrompt(rawOutput);
 
-    const retryResult = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: fixPrompt }]
-        }
-      ]
-    });
-
-    retryRawOutput = retryResult.response.text();
+    retryRawOutput = await AI.generateText(fixPrompt);
 
     logger.debug(
       `[ai.service] Retry raw response (first 300 chars): ${retryRawOutput?.slice(0, 300)}`
@@ -179,31 +159,15 @@ const analyzeImage = async (base64Image, mimeType = 'image/png') => {
     throw new Error('[ai.service] base64Image must be a non-empty string');
   }
 
-  const model = getGeminiModel(MODEL_NAME);
-
   // ── Attempt 1: Primary generation (multimodal) ───────────────────────────
   let rawOutput;
   try {
     logger.info(`[ai.service] Sending image analysis request to Gemini (model: ${MODEL_NAME})`);
 
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              inlineData: {
-                mimeType,
-                data: base64Image,
-              },
-            },
-            { text: IMAGE_ANALYSIS_PROMPT },
-          ],
-        },
-      ],
-    });
-
-    rawOutput = result.response.text();
+    rawOutput = await AI.analyzeImage(
+      base64Image,
+      mimeType
+    );
 
     logger.debug(
       `[ai.service] Image analysis raw response (first 300 chars): ${rawOutput?.slice(0, 300)}`
@@ -241,16 +205,7 @@ const analyzeImage = async (base64Image, mimeType = 'image/png') => {
   try {
     const fixPrompt = buildJsonFixPrompt(rawOutput);
 
-    const retryResult = await model.generateContent({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: fixPrompt }],
-        },
-      ],
-    });
-
-    retryRawOutput = retryResult.response.text();
+    retryRawOutput = await AI.generateText(fixPrompt);
 
     logger.debug(
       `[ai.service] Image analysis retry raw response (first 300 chars): ${retryRawOutput?.slice(0, 300)}`

@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pymupdf
+pillow
+unstructured
+unstructured-inference
+pdfminer.six
+pdf2image
+pi-heif

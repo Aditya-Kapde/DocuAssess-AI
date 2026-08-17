@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 const { extractText } = require('./pdf.service');
 const { chunkText } = require('./chunk.service');
 const { extractImagesFromPdf } = require('./imageExtract.service');
+const { fetchVisualImages } = require('./pythonVisual.service');
 const FileRecord = require('../models/fileRecord.model');
 
 /**
@@ -72,28 +73,77 @@ const processUploadWithExtraction = async (file) => {
     return { fileRecord, extraction, chunking: null };
   }
 
-  // ── Stage 3.5: Extract images from PDF (non-blocking) ───────────────────
-  // Image extraction failure is non-fatal — text pipeline continues.
+  // ── Stage 3.5: Extract images from PDF via Python visual pipeline first — non-blocking
+  // If Python fails or returns no visuals, fall back to the existing extraction service.
   let extractedImages = [];
   try {
-    const imageResult = await extractImagesFromPdf(file.path, fileId);
+    const pythonResult = await fetchVisualImages(file.path, fileId);
+    console.log("========== PYTHON RESULT ==========");
+    console.log(JSON.stringify(pythonResult, null, 2));
+    console.log("==================================");
 
-    if (imageResult.success && Array.isArray(imageResult.images)) {
-      extractedImages = imageResult.images.map((img) => ({
+    if (pythonResult.success && Array.isArray(pythonResult.images) && pythonResult.images.length > 0) {
+      extractedImages = pythonResult.images.map((img) => ({
         page: img.page,
         path: img.path,
         extractedAt: new Date(),
       }));
-    }
 
-    logger.info(
-      `[upload.service] Extracted ${extractedImages.length} image(s) from PDF — fileId: ${fileId}`
+      logger.info(
+        `[upload.service] Extracted ${extractedImages.length} visual crop(s) from Python service — fileId: ${fileId}`
+      );
+    } else {
+      if (!pythonResult.success) {
+        logger.warn(
+          `[upload.service] Python visual extraction failed for fileId ${fileId}: ${pythonResult.error}`
+        );
+      } else {
+        logger.info(
+          `[upload.service] Python visual extraction returned no visuals for fileId ${fileId}`
+        );
+      }
+
+      logger.info(
+        `[upload.service] Skipping fallback extraction — using empty image list for fileId: ${fileId}`
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      `[upload.service] Python visual extraction failed for fileId ${fileId} (non-fatal): ${err.message} — skipping fallback, using empty image list`
     );
   } catch (err) {
     logger.warn(
       `[upload.service] Image extraction failed for fileId ${fileId} (non-fatal): ${err.message}`
     );
     // Continue — text-only pipeline still works
+  }
+
+  // ── Stage 4: Persist extraction + chunk + image results ─────────────────
+  try {
+    await FileRecord.findOneAndUpdate(
+      { fileId },
+      {
+        $set: {
+          pageCount:  extraction.pageCount,
+          charCount:  extraction.charCount,
+          chunks:     chunking.chunks,
+          chunkCount: chunking.chunkCount,
+          images:     extractedImages,
+          status:     'processed',
+          error:      null,
+        },
+      },
+      { new: true }
+    );
+
+    logger.info(
+      `[upload.service] FileRecord updated to 'processed' — fileId: ${fileId}, ` +
+      `chunks: ${chunking.chunkCount}, images: ${extractedImages.length}`
+    );
+  } catch (err) {
+    logger.error(`[upload.service] Failed to persist results for ${fileId}: ${err.message}`);
+    await _markFailed(fileId, err.message);
+    throw err;
   }
 
   // ── Stage 4: Persist extraction + chunk + image results ─────────────────

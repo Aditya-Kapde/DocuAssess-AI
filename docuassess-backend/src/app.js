@@ -13,8 +13,22 @@ const logger = require('./utils/logger');
 
 const app = express();
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    service: "docuassess-backend",
+    provider: process.env.AI_PROVIDER,
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Security & parsing middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 app.use(cors({ origin: appConfig.corsOrigin, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -23,8 +37,10 @@ app.use(morgan('dev', { stream: { write: (msg) => logger.debug(msg.trim()) } }))
 const path = require('path');
 
 // Serve uploaded images
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '..', 'uploads'))
+);
 // API routes
 app.use('/api/v1', router);
 
