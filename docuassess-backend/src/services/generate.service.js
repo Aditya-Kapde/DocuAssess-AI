@@ -495,8 +495,9 @@ for (const [type, count] of Object.entries(effectiveConfig)) {
 
       // Step 4: Determine if attachment is warranted
       const visualIntent = hasVisualIntent(questionText);
-      const scoreThreshold = 0.2;
-      const shouldAttach = match && (match.score > scoreThreshold || visualIntent);
+      const isImageType = ['diagram_mcq', 'graph_analysis', 'label_identification'].includes(question.type);
+      const scoreThreshold = 0.45;
+      const shouldAttach = match && (isImageType || match.score > scoreThreshold || (visualIntent && match.score > 0.3));
 
       if (shouldAttach) {
         const imgPath = normalizePath(match.chunk.path);

@@ -111,11 +111,6 @@ const processUploadWithExtraction = async (file) => {
     logger.warn(
       `[upload.service] Python visual extraction failed for fileId ${fileId} (non-fatal): ${err.message} — skipping fallback, using empty image list`
     );
-  } catch (err) {
-    logger.warn(
-      `[upload.service] Image extraction failed for fileId ${fileId} (non-fatal): ${err.message}`
-    );
-    // Continue — text-only pipeline still works
   }
 
   // ── Stage 4: Persist extraction + chunk + image results ─────────────────

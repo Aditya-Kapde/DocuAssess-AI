@@ -9,41 +9,48 @@ export default function AccordionSection({ type, questions, defaultOpen = false 
 
   return (
     <div
-      className="animate-fade-in"
+      className="accordion-container animate-fade-in"
       style={{
-        borderRadius: 'var(--radius-md)',
-        border: `1px solid ${open ? color.border + '40' : 'var(--color-border)'}`,
+        borderRadius: 'var(--radius-lg)',
+        border: `1px solid ${open ? color.border : 'var(--color-border)'}`,
+        background: open ? 'rgba(255, 255, 255, 0.02)' : 'rgba(26, 26, 46, 0.6)',
+        backdropFilter: 'blur(12px)',
         overflow: 'hidden',
         transition: 'all var(--transition)',
+        boxShadow: open ? `0 8px 32px ${color.border}20` : 'none',
       }}
     >
       {/* Header */}
       <button
+        className="accordion-button"
         onClick={() => setOpen(!open)}
         style={{
           width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '16px 20px',
-          background: open ? color.bg : 'var(--color-surface)',
+          padding: '20px 24px',
+          background: 'transparent',
           border: 'none',
           cursor: 'pointer',
           fontFamily: 'var(--font-sans)',
-          transition: 'all var(--transition)',
-        }}
-        onMouseEnter={(e) => {
-          if (!open) e.currentTarget.style.background = 'var(--color-surface-hover)';
-        }}
-        onMouseLeave={(e) => {
-          if (!open) e.currentTarget.style.background = 'var(--color-surface)';
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div
+            style={{
+              width: '4px',
+              height: '24px',
+              borderRadius: '2px',
+              background: open ? color.text : 'transparent',
+              transition: 'background var(--transition)',
+            }}
+          />
           <span
             style={{
               fontWeight: 700,
-              fontSize: '15px',
+              fontSize: '16px',
+              letterSpacing: '0.3px',
               color: open ? color.text : 'var(--color-text)',
             }}
           >
@@ -51,12 +58,14 @@ export default function AccordionSection({ type, questions, defaultOpen = false 
           </span>
           <span
             style={{
-              padding: '2px 10px',
+              padding: '4px 12px',
               borderRadius: 'var(--radius-full)',
-              background: color.bg,
-              color: color.text,
-              fontSize: '12px',
+              background: open ? color.bg : 'var(--color-surface)',
+              color: open ? color.text : 'var(--color-text-muted)',
+              fontSize: '13px',
               fontWeight: 700,
+              boxShadow: open ? `0 0 10px ${color.bg}` : 'none',
+              transition: 'all var(--transition)',
             }}
           >
             {count}
@@ -64,37 +73,34 @@ export default function AccordionSection({ type, questions, defaultOpen = false 
         </div>
 
         <svg
-          width="18"
-          height="18"
-          viewBox="0 0 18 18"
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
           fill="none"
           style={{
             transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform var(--transition)',
-            color: 'var(--color-text-muted)',
+            transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+            color: open ? color.text : 'var(--color-text-muted)',
           }}
         >
-          <path d="M4 7L9 12L14 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M5 8L10 13L15 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
       {/* Content */}
-      {open && (
-        <div
-          className="animate-slide-down"
-          style={{
-            padding: '8px 16px 16px',
-            background: 'var(--color-surface)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          {(questions || []).map((q, i) => (
-            <QuestionItem key={i} type={type} question={q} index={i + 1} color={color} />
-          ))}
-        </div>
-      )}
+      <div
+        className={`accordion-content ${open ? 'animate-slide-down' : ''}`}
+        style={{
+          padding: '0 24px 24px',
+          display: open ? 'flex' : 'none',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        {(questions || []).map((q, i) => (
+          <QuestionItem key={i} type={type} question={q} index={i + 1} color={color} label={label} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -105,11 +111,8 @@ const getQuestionText = (q) =>
   typeof q === 'object' && q !== null ? q?.text || '' : q || '';
 
 const QuestionImage = ({ question: q }) => {
+  const [isOpen, setIsOpen] = useState(false);
   const img = typeof q === "object" && q !== null ? q?.image : null;
-
-  console.log("QUESTION OBJECT:", q);
-  console.log("IMAGE FIELD:", img);
-  console.log("API BASE:", import.meta.env.VITE_API_BASE);
 
   if (!img) return null;
 
@@ -117,58 +120,145 @@ const QuestionImage = ({ question: q }) => {
     (import.meta.env.VITE_API_BASE || "http://localhost:5000/api/v1")
       .replace("/api/v1", "");
 
-  console.log("BACKEND:", backend);
-
   const imageUrl = `${backend}/${img}`;
 
-  console.log("FINAL URL:", imageUrl);
-
   return (
-    <img
-      src={imageUrl}
-      alt="question"
-      style={{
-        maxWidth: "300px",
-        marginTop: "10px",
-        borderRadius: "8px",
-      }}
-    />
+    <>
+      <div 
+        onClick={() => setIsOpen(true)}
+        style={{ margin: '16px 0', padding: '12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', display: 'inline-block', cursor: 'zoom-in', transition: 'transform 0.2s' }}
+        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        <img
+          src={imageUrl}
+          alt="Visual reference"
+          style={{
+            maxWidth: "100%",
+            maxHeight: "350px",
+            borderRadius: "4px",
+            objectFit: "contain"
+          }}
+        />
+      </div>
+      
+      {isOpen && (
+        <div 
+          onClick={() => setIsOpen(false)}
+          className="no-print animate-fade-in"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(5px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'zoom-out',
+            padding: '40px'
+          }}
+        >
+          <img 
+            src={imageUrl} 
+            alt="Visual reference enlarged" 
+            style={{ 
+              maxWidth: '100%', 
+              maxHeight: '100%', 
+              objectFit: 'contain', 
+              borderRadius: '8px', 
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)' 
+            }} 
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button 
+            onClick={() => setIsOpen(false)}
+            style={{
+              position: 'absolute',
+              top: '24px',
+              right: '24px',
+              background: 'rgba(255,255,255,0.1)',
+              border: 'none',
+              color: 'white',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              fontSize: '24px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </>
   );
 };
 
-function QuestionItem({ type, question, index, color }) {
+function QuestionItem({ type, question, index, color, label }) {
   const cardStyle = {
-    padding: '16px 20px',
-    borderRadius: 'var(--radius-sm)',
-    background: 'var(--color-surface-alt)',
+    padding: '24px',
+    borderRadius: 'var(--radius-md)',
+    background: 'rgba(30, 30, 50, 0.4)',
     border: '1px solid var(--color-border)',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
   };
 
   const questionNumStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '16px',
+  };
+
+  const badgeStyle = {
     fontSize: '12px',
-    fontWeight: 700,
+    fontWeight: 800,
+    padding: '4px 10px',
+    borderRadius: '6px',
+    background: color.bg,
     color: color.text,
-    marginBottom: '8px',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   };
 
+  const printTypeStyle = {
+    fontSize: '13px',
+    color: 'var(--color-text-muted)',
+    fontWeight: 600,
+  };
+
   const questionTextStyle = {
-    fontSize: '14px',
+    fontSize: '15px',
     fontWeight: 500,
     lineHeight: 1.6,
     color: 'var(--color-text)',
-    marginBottom: '14px',
+    marginBottom: '20px',
   };
 
   switch (type) {
     case 'mcq':
+    case 'diagram_mcq':
+    case 'graph_analysis':
+    case 'label_identification':
       return (
-        <div style={cardStyle}>
-          <div style={questionNumStyle}>Q{index}</div>
+        <div className="question-item" style={cardStyle}>
+          <div style={questionNumStyle}>
+            <span style={badgeStyle}>Q{index}</span>
+            <span className="print-only" style={{ display: 'none', ...printTypeStyle }}>{label}</span>
+          </div>
           <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
           <QuestionImage question={question.question} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {question.options?.map((opt, i) => {
               const isCorrect = opt === question.answer;
               return (
@@ -177,24 +267,25 @@ function QuestionItem({ type, question, index, color }) {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 14px',
+                    gap: '12px',
+                    padding: '12px 16px',
                     borderRadius: 'var(--radius-sm)',
                     background: isCorrect ? 'var(--color-green-muted)' : 'var(--color-surface)',
-                    border: `1px solid ${isCorrect ? 'rgba(34, 197, 94, 0.3)' : 'var(--color-border)'}`,
-                    fontSize: '13px',
+                    border: `1px solid ${isCorrect ? 'rgba(34, 197, 94, 0.4)' : 'transparent'}`,
+                    fontSize: '14px',
+                    transition: 'all 0.2s',
                   }}
                 >
                   <span
                     style={{
-                      width: 22,
-                      height: 22,
+                      width: 26,
+                      height: 26,
                       borderRadius: '50%',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '11px',
-                      fontWeight: 700,
+                      fontSize: '12px',
+                      fontWeight: 800,
                       background: isCorrect ? 'var(--color-green)' : 'var(--color-border)',
                       color: isCorrect ? '#fff' : 'var(--color-text-muted)',
                       flexShrink: 0,
@@ -202,12 +293,12 @@ function QuestionItem({ type, question, index, color }) {
                   >
                     {String.fromCharCode(65 + i)}
                   </span>
-                  <span style={{ color: isCorrect ? 'var(--color-green)' : 'var(--color-text-secondary)' }}>
+                  <span style={{ color: isCorrect ? 'var(--color-green)' : 'var(--color-text-secondary)', fontWeight: isCorrect ? 600 : 400 }}>
                     {opt}
                   </span>
                   {isCorrect && (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginLeft: 'auto', color: 'var(--color-green)' }}>
-                      <path d="M3 8L6.5 11.5L13 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ marginLeft: 'auto', color: 'var(--color-green)' }}>
+                      <path d="M4 10L8 14L16 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </div>
@@ -219,78 +310,80 @@ function QuestionItem({ type, question, index, color }) {
 
     case 'true_false':
       return (
-        <div style={cardStyle}>
-          <div style={questionNumStyle}>Q{index}</div>
+        <div className="question-item" style={cardStyle}>
+          <div style={questionNumStyle}>
+            <span style={badgeStyle}>Q{index}</span>
+            <span className="print-only" style={{ display: 'none', ...printTypeStyle }}>{label}</span>
+          </div>
           <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
           <QuestionImage question={question.question} />
-          <span
-            style={{
-              display: 'inline-block',
-              padding: '6px 16px',
-              borderRadius: 'var(--radius-full)',
-              fontWeight: 700,
-              fontSize: '13px',
-              background: question.answer ? 'var(--color-green-muted)' : 'var(--color-red-muted)',
-              color: question.answer ? 'var(--color-green)' : 'var(--color-red)',
-              border: `1px solid ${question.answer ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-            }}
-          >
-            {question.answer ? '✓ TRUE' : '✗ FALSE'}
-          </span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: 'var(--radius-full)', background: question.answer ? 'var(--color-green-muted)' : 'var(--color-red-muted)', border: `1px solid ${question.answer ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'}` }}>
+            <span style={{ fontWeight: 800, fontSize: '14px', color: question.answer ? 'var(--color-green)' : 'var(--color-red)' }}>
+              {question.answer ? '✓ TRUE' : '✗ FALSE'}
+            </span>
+          </div>
         </div>
       );
 
     case 'fill_blanks':
       return (
-        <div style={cardStyle}>
-          <div style={questionNumStyle}>Q{index}</div>
+        <div className="question-item" style={cardStyle}>
+          <div style={questionNumStyle}>
+            <span style={badgeStyle}>Q{index}</span>
+            <span className="print-only" style={{ display: 'none', ...printTypeStyle }}>{label}</span>
+          </div>
           <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
           <QuestionImage question={question.question} />
           <div
             style={{
-              padding: '10px 14px',
+              padding: '12px 18px',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--color-primary-muted)',
-              border: '1px solid rgba(124, 108, 255, 0.2)',
-              fontSize: '13px',
+              border: '1px dashed rgba(124, 108, 255, 0.5)',
+              fontSize: '14px',
+              display: 'inline-block',
             }}
           >
-            <span style={{ color: 'var(--color-text-muted)', marginRight: '8px' }}>Answer:</span>
-            <strong style={{ color: 'var(--color-primary)' }}>{question.answer}</strong>
+            <span style={{ color: 'var(--color-text-muted)', marginRight: '10px', fontWeight: 500 }}>Correct Answer:</span>
+            <strong style={{ color: 'var(--color-primary)', fontSize: '15px' }}>{question.answer}</strong>
           </div>
         </div>
       );
 
     case 'match_following':
       return (
-        <div style={cardStyle}>
-          <div style={questionNumStyle}>Q{index}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '8px', alignItems: 'center' }}>
+        <div className="question-item" style={cardStyle}>
+          <div style={questionNumStyle}>
+            <span style={badgeStyle}>Q{index}</span>
+            <span className="print-only" style={{ display: 'none', ...printTypeStyle }}>{label}</span>
+          </div>
+          <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
+          <QuestionImage question={question.question} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'center' }}>
             {question.left?.map((item, i) => (
               <div key={i} style={{ display: 'contents' }}>
                 <div
                   style={{
-                    padding: '8px 14px',
+                    padding: '12px 16px',
                     borderRadius: 'var(--radius-sm)',
                     background: 'var(--color-surface)',
                     border: '1px solid var(--color-border)',
-                    fontSize: '13px',
-                    textAlign: 'center',
+                    fontSize: '14px',
+                    fontWeight: 500,
                   }}
                 >
                   {item}
                 </div>
-                <span style={{ color: 'var(--color-text-muted)', fontSize: '16px' }}>→</span>
+                <span style={{ color: 'var(--color-text-muted)', fontSize: '18px', fontWeight: 800 }}>→</span>
                 <div
                   style={{
-                    padding: '8px 14px',
+                    padding: '12px 16px',
                     borderRadius: 'var(--radius-sm)',
                     background: 'var(--color-primary-muted)',
-                    border: '1px solid rgba(124, 108, 255, 0.2)',
-                    fontSize: '13px',
+                    border: '1px solid rgba(124, 108, 255, 0.3)',
+                    fontSize: '14px',
                     color: 'var(--color-primary)',
-                    fontWeight: 500,
-                    textAlign: 'center',
+                    fontWeight: 700,
                   }}
                 >
                   {question.answer?.[item] || '—'}
@@ -303,43 +396,46 @@ function QuestionItem({ type, question, index, color }) {
 
     case 'ordering':
       return (
-        <div style={cardStyle}>
-          <div style={questionNumStyle}>Q{index}</div>
+        <div className="question-item" style={cardStyle}>
+          <div style={questionNumStyle}>
+            <span style={badgeStyle}>Q{index}</span>
+            <span className="print-only" style={{ display: 'none', ...printTypeStyle }}>{label}</span>
+          </div>
           <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
           <QuestionImage question={question.question} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {question.correct_order?.map((item, i) => (
               <div
                 key={i}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  padding: '10px 14px',
+                  gap: '16px',
+                  padding: '12px 16px',
                   borderRadius: 'var(--radius-sm)',
                   background: 'var(--color-surface)',
                   border: '1px solid var(--color-border)',
-                  fontSize: '13px',
+                  fontSize: '14px',
                 }}
               >
                 <span
                   style={{
-                    width: 24,
-                    height: 24,
+                    width: 28,
+                    height: 28,
                     borderRadius: '50%',
                     background: 'var(--color-blue-muted)',
                     color: 'var(--color-blue)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '12px',
-                    fontWeight: 700,
+                    fontSize: '13px',
+                    fontWeight: 800,
                     flexShrink: 0,
                   }}
                 >
                   {i + 1}
                 </span>
-                <span style={{ color: 'var(--color-text-secondary)' }}>{item}</span>
+                <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{item}</span>
               </div>
             ))}
           </div>
@@ -348,11 +444,14 @@ function QuestionItem({ type, question, index, color }) {
 
     case 'multi_select':
       return (
-        <div style={cardStyle}>
-          <div style={questionNumStyle}>Q{index}</div>
+        <div className="question-item" style={cardStyle}>
+          <div style={questionNumStyle}>
+            <span style={badgeStyle}>Q{index}</span>
+            <span className="print-only" style={{ display: 'none', ...printTypeStyle }}>{label}</span>
+          </div>
           <p style={questionTextStyle}>{getQuestionText(question.question)}</p>
           <QuestionImage question={question.question} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {question.options?.map((opt, i) => {
               const isCorrect = question.answers?.includes(opt);
               return (
@@ -361,23 +460,25 @@ function QuestionItem({ type, question, index, color }) {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 14px',
+                    gap: '12px',
+                    padding: '12px 16px',
                     borderRadius: 'var(--radius-sm)',
                     background: isCorrect ? 'var(--color-green-muted)' : 'var(--color-surface)',
-                    border: `1px solid ${isCorrect ? 'rgba(34, 197, 94, 0.3)' : 'var(--color-border)'}`,
-                    fontSize: '13px',
+                    border: `1px solid ${isCorrect ? 'rgba(34, 197, 94, 0.4)' : 'transparent'}`,
+                    fontSize: '14px',
+                    transition: 'all 0.2s',
                   }}
                 >
                   <span
                     style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: '3px',
+                      width: 22,
+                      height: 22,
+                      borderRadius: '4px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '11px',
+                      fontSize: '14px',
+                      fontWeight: 800,
                       background: isCorrect ? 'var(--color-green)' : 'var(--color-border)',
                       color: '#fff',
                       flexShrink: 0,
@@ -385,7 +486,7 @@ function QuestionItem({ type, question, index, color }) {
                   >
                     {isCorrect ? '✓' : ''}
                   </span>
-                  <span style={{ color: isCorrect ? 'var(--color-green)' : 'var(--color-text-secondary)' }}>
+                  <span style={{ color: isCorrect ? 'var(--color-green)' : 'var(--color-text-secondary)', fontWeight: isCorrect ? 600 : 400 }}>
                     {opt}
                   </span>
                 </div>
@@ -397,9 +498,13 @@ function QuestionItem({ type, question, index, color }) {
 
     default:
       return (
-        <div style={cardStyle}>
-          <div style={questionNumStyle}>Q{index}</div>
-          <pre style={{ fontSize: '12px', color: 'var(--color-text-secondary)', whiteSpace: 'pre-wrap' }}>
+        <div className="question-item" style={cardStyle}>
+          <div style={questionNumStyle}>
+            <span style={badgeStyle}>Q{index}</span>
+            <span className="print-only" style={{ display: 'none', ...printTypeStyle }}>{label}</span>
+          </div>
+          <p style={questionTextStyle}>Raw Output (Unsupported Type)</p>
+          <pre style={{ fontSize: '12px', color: 'var(--color-text-secondary)', whiteSpace: 'pre-wrap', background: 'var(--color-surface)', padding: '16px', borderRadius: 'var(--radius-sm)' }}>
             {JSON.stringify(question, null, 2)}
           </pre>
         </div>

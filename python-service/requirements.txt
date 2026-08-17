@@ -7,3 +7,4 @@ unstructured-inference
 pdfminer.six
 pdf2image
 pi-heif
+python-multipart

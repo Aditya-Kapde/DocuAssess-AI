@@ -159,3 +159,62 @@ input[type="range"]::-moz-range-thumb {
 [data-sonner-toaster] {
   font-family: var(--font-sans) !important;
 }
+
+/* ── Print Styles ────────────────────────────────────────────── */
+@media print {
+  @page { margin: 0; size: auto; }
+  body { 
+    background: white !important; 
+    color: black !important; 
+    padding: 20mm;
+  }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .animate-fade-in, .animate-slide-down { animation: none !important; }
+  
+  .accordion-content { 
+    display: block !important; 
+    opacity: 1 !important; 
+    max-height: none !important; 
+    padding: 0 !important;
+  }
+  .accordion-button { display: none !important; }
+  .accordion-container { 
+    border: none !important; 
+    margin-bottom: 30px !important; 
+    background: transparent !important; 
+    box-shadow: none !important;
+  }
+  
+  .question-item { 
+    border: 1px solid #ddd !important; 
+    background: white !important; 
+    page-break-inside: avoid; 
+    margin-bottom: 24px !important; 
+    box-shadow: none !important;
+    padding: 20px !important;
+  }
+  
+  .question-item * {
+    color: #111 !important;
+  }
+
+  /* Keep green checkmarks visible in print but remove background */
+  .question-item svg {
+    color: #22C55E !important;
+  }
+  
+  /* Reset badge colors for print */
+  .question-item span[style*="border-radius: 50%"],
+  .question-item span[style*="border-radius: 4px"] {
+    background: transparent !important;
+    border: 1px solid #999 !important;
+    color: #333 !important;
+  }
+  
+  /* Highlight correct answers slightly differently in print */
+  .question-item div[style*="background: var(--color-green-muted)"] {
+    background: #f0fdf4 !important;
+    border: 1px solid #86efac !important;
+  }
+}

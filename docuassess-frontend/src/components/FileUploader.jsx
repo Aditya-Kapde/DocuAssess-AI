@@ -30,109 +30,169 @@ export default function FileUploader({ onUpload, loading }) {
 
   return (
     <div
-      onDragEnter={handleDrag}
-      onDragOver={handleDrag}
-      onDragLeave={handleDrag}
-      onDrop={handleDrop}
-      onClick={() => !loading && inputRef.current?.click()}
       style={{
-        position: 'relative',
         width: '100%',
-        maxWidth: '560px',
-        padding: '64px 40px',
-        borderRadius: 'var(--radius-lg)',
-        border: `2px dashed ${dragActive ? 'var(--color-primary)' : 'var(--color-border)'}`,
-        background: dragActive ? 'var(--color-primary-muted)' : 'var(--color-surface)',
-        cursor: loading ? 'not-allowed' : 'pointer',
-        transition: 'all var(--transition)',
-        textAlign: 'center',
-        opacity: loading ? 0.7 : 1,
-      }}
-      onMouseEnter={(e) => {
-        if (!loading && !dragActive) {
-          e.currentTarget.style.borderColor = 'var(--color-border-hover)';
-          e.currentTarget.style.background = 'var(--color-surface-hover)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!dragActive) {
-          e.currentTarget.style.borderColor = 'var(--color-border)';
-          e.currentTarget.style.background = 'var(--color-surface)';
-        }
+        background: 'linear-gradient(145deg, rgba(30, 30, 50, 0.6) 0%, rgba(20, 20, 35, 0.8) 100%)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '24px',
+        padding: '8px',
+        boxShadow: '0 24px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)',
       }}
     >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,application/pdf"
-        onChange={handleChange}
-        disabled={loading}
-        style={{ display: 'none' }}
-      />
+      <div
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+        onDragLeave={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => !loading && inputRef.current?.click()}
+        style={{
+          position: 'relative',
+          width: '100%',
+          padding: '60px 40px',
+          borderRadius: '16px',
+          border: `2px dashed ${dragActive ? 'var(--color-primary)' : 'rgba(124, 108, 255, 0.2)'}`,
+          background: dragActive ? 'rgba(124, 108, 255, 0.05)' : 'transparent',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'all 0.3s ease',
+          textAlign: 'center',
+          opacity: loading ? 0.7 : 1,
+        }}
+        onMouseEnter={(e) => {
+          if (!loading && !dragActive) {
+            e.currentTarget.style.borderColor = 'rgba(124, 108, 255, 0.5)';
+            e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!dragActive) {
+            e.currentTarget.style.borderColor = 'rgba(124, 108, 255, 0.2)';
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          onChange={handleChange}
+          disabled={loading}
+          style={{ display: 'none' }}
+        />
 
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              border: '3px solid var(--color-border)',
-              borderTopColor: 'var(--color-primary)',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-            }}
-          />
-          <p style={{ fontSize: '15px', color: 'var(--color-text-secondary)' }}>
-            Uploading & extracting...
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Upload Icon */}
-          <div style={{ marginBottom: '20px' }}>
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" style={{ margin: '0 auto' }}>
-              <rect width="56" height="56" rx="16" fill="var(--color-primary-muted)" />
-              <path
-                d="M28 18V38M28 18L22 24M28 18L34 24"
-                stroke="var(--color-primary)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+            <div style={{ position: 'relative', width: '64px', height: '64px' }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  border: '3px solid rgba(124, 108, 255, 0.1)',
+                  borderRadius: '50%',
+                }}
               />
-              <path
-                d="M18 32V36C18 37.1046 18.8954 38 20 38H36C37.1046 38 38 37.1046 38 36V32"
-                stroke="var(--color-primary)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  border: '3px solid transparent',
+                  borderTopColor: 'var(--color-primary)',
+                  borderRadius: '50%',
+                  animation: 'spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+                }}
               />
-            </svg>
+            </div>
+            <div>
+              <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-text)', marginBottom: '4px' }}>
+                Analyzing Document
+              </p>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
+                Extracting text, images, and context...
+              </p>
+            </div>
           </div>
-          <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>
-            Upload a PDF to generate questions
-          </h2>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', marginBottom: '20px' }}>
-            Drag & drop your file here, or click to browse
-          </p>
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '10px 24px',
-              borderRadius: 'var(--radius-full)',
-              background: 'var(--color-primary)',
-              color: '#fff',
-              fontSize: '14px',
-              fontWeight: 600,
-              transition: 'all var(--transition)',
-            }}
-          >
-            Choose PDF
-          </div>
-          <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '16px' }}>
-            PDF only · Max 20MB
-          </p>
-        </>
-      )}
+        ) : (
+          <>
+            {/* Upload Icon with Glow */}
+            <div style={{ position: 'relative', display: 'inline-block', marginBottom: '24px' }}>
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '60px',
+                height: '60px',
+                background: 'var(--color-primary)',
+                filter: 'blur(30px)',
+                opacity: 0.4,
+                borderRadius: '50%'
+              }} />
+              <div style={{
+                position: 'relative',
+                width: '64px',
+                height: '64px',
+                background: 'rgba(124, 108, 255, 0.1)',
+                border: '1px solid rgba(124, 108, 255, 0.2)',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto',
+                boxShadow: 'inset 0 2px 10px rgba(255,255,255,0.05)'
+              }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="url(#primaryGradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <defs>
+                    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#A5B4FC" />
+                      <stop offset="100%" stopColor="#7C6CFF" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+            </div>
+
+            <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#fff', marginBottom: '8px', letterSpacing: '-0.5px' }}>
+              Upload your PDF
+            </h2>
+            <p style={{ fontSize: '15px', color: 'var(--color-text-secondary)', marginBottom: '32px' }}>
+              Drag and drop your file here or click to browse your computer
+            </p>
+
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 32px',
+                borderRadius: 'var(--radius-full)',
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, #5b4ae6 100%)',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 600,
+                boxShadow: '0 8px 24px rgba(124, 108, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 12px 28px rgba(124, 108, 255, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(124, 108, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+              }}
+            >
+              Browse Files
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '20px' }}>
+              Maximum file size: 20MB
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

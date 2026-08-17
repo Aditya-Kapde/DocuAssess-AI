@@ -8,6 +8,9 @@
 
 // ── Type Mapping ─────────────────────────────────────────────
 const TYPE_MAP = {
+  diagram_mcq: 'multipleChoice',
+  graph_analysis: 'multipleChoice',
+  label_identification: 'multipleChoice',
   mcq: 'multipleChoice',
   true_false: 'trueFalse',
   fill_blanks: 'fillInBlanks',
@@ -23,12 +26,20 @@ const DEFAULT_MARKS = 1;
 /**
  * Build the standard `question` object used across all types.
  */
-function buildQuestionObj(text) {
+function buildQuestionObj(qText) {
+  let text = '';
+  let image = '';
+  if (typeof qText === 'object' && qText !== null) {
+    text = qText.text || '';
+    image = qText.image || '';
+  } else if (typeof qText === 'string') {
+    text = qText;
+  }
   return {
     hide_text: false,
-    text: typeof text === 'string' ? text : '',
+    text: text,
     read_text: false,
-    image: '',
+    image: image,
   };
 }
 
@@ -150,6 +161,9 @@ function transformTrueFalse(q, globalId) {
 
 // ── Transformer registry ─────────────────────────────────────
 const TRANSFORMERS = {
+  diagram_mcq: transformMultipleChoice,
+  graph_analysis: transformMultipleChoice,
+  label_identification: transformMultipleChoice,
   fill_blanks: transformFillInBlanks,
   mcq: transformMultipleChoice,
   multi_select: transformMultiSelect,
@@ -174,7 +188,7 @@ function formatForExport(questions) {
 
   // Validate each question has the minimum required fields
   for (const q of questions) {
-    if (!q || typeof q.question !== 'string' || !q.type) {
+    if (!q || !q.question || !q.type) {
       throw new Error('Invalid question structure detected');
     }
     if (!(q.type in TYPE_MAP)) {
